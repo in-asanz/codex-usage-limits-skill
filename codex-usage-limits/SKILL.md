@@ -91,6 +91,7 @@ python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --perce
 - `api_used_percent`: same API value, exposed explicitly.
 - UI "Uso restante": `100 - used_percent`.
 - `ui_remaining_percent`: exact value to compare with the UI percentage.
+- `*_percent_exact`: string representation that preserves decimals if the API emits them.
 - `reset_after_seconds`: seconds until renewal from the event timestamp.
 - `reset_at`: absolute renewal timestamp.
 - `event_age_seconds`: age of the local `codex.rate_limits` event. If it is too old, trigger a new Codex model response and rerun.

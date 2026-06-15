@@ -9,6 +9,7 @@ import json
 import os
 import sqlite3
 import time
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +34,7 @@ def pick_database(codex_home: Path) -> Path:
 
 
 def latest_rate_limit_event(db_path: Path, row_limit: int) -> tuple[int, dict[str, Any]]:
-    decoder = json.JSONDecoder()
+    decoder = json.JSONDecoder(parse_float=Decimal, parse_int=Decimal)
     marker = "websocket event: "
     uri = f"file:{db_path}?mode=ro"
 
@@ -64,16 +65,36 @@ def latest_rate_limit_event(db_path: Path, row_limit: int) -> tuple[int, dict[st
     raise SystemExit("No codex.rate_limits event found in recent logs.")
 
 
+def decimal_value(value: Any) -> Decimal:
+    return value if isinstance(value, Decimal) else Decimal(str(value))
+
+
+def format_decimal(value: Decimal) -> str:
+    if value == value.to_integral_value():
+        return str(int(value))
+    return format(value.normalize(), "f")
+
+
+def json_percent(value: Decimal) -> int | float:
+    if value == value.to_integral_value():
+        return int(value)
+    return float(value)
+
+
 def format_window(window: dict[str, Any]) -> dict[str, Any]:
-    used = int(window["used_percent"])
-    remaining = 100 - used
+    used = decimal_value(window["used_percent"])
+    remaining = Decimal("100") - used
     reset_at = int(window["reset_at"])
     reset_dt = dt.datetime.fromtimestamp(reset_at).astimezone()
     return {
-        "remaining_percent": remaining,
-        "used_percent": used,
-        "ui_remaining_percent": remaining,
-        "api_used_percent": used,
+        "remaining_percent": json_percent(remaining),
+        "used_percent": json_percent(used),
+        "ui_remaining_percent": json_percent(remaining),
+        "api_used_percent": json_percent(used),
+        "remaining_percent_exact": format_decimal(remaining),
+        "used_percent_exact": format_decimal(used),
+        "ui_remaining_percent_exact": format_decimal(remaining),
+        "api_used_percent_exact": format_decimal(used),
         "window_minutes": int(window["window_minutes"]),
         "reset_after_seconds": int(window["reset_after_seconds"]),
         "reset_at": reset_at,
@@ -113,11 +134,11 @@ def print_text(result: dict[str, Any]) -> None:
 
 def print_percentages(result: dict[str, Any]) -> None:
     lines = {
-        "5h_remaining_percent": result["5h"]["ui_remaining_percent"],
-        "5h_used_percent": result["5h"]["api_used_percent"],
+        "5h_remaining_percent": result["5h"]["ui_remaining_percent_exact"],
+        "5h_used_percent": result["5h"]["api_used_percent_exact"],
         "5h_reset_at_local": result["5h"]["reset_at_local"],
-        "weekly_remaining_percent": result["weekly"]["ui_remaining_percent"],
-        "weekly_used_percent": result["weekly"]["api_used_percent"],
+        "weekly_remaining_percent": result["weekly"]["ui_remaining_percent_exact"],
+        "weekly_used_percent": result["weekly"]["api_used_percent_exact"],
         "weekly_reset_at_local": result["weekly"]["reset_at_local"],
         "captured_at_local": result["captured_at_local"],
         "event_age_seconds": result["event_age_seconds"],

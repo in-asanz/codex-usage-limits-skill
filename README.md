@@ -78,6 +78,8 @@ The 5-hour window is `rate_limits.primary`; the weekly window is `rate_limits.se
 
 The API currently exposes percentage values as integer `used_percent` fields. The script returns those exact API integers and computes the UI remaining value as `100 - used_percent`. It also reports `event_age_seconds` so callers can reject stale local events.
 
+If the API starts emitting decimal percentages, the script preserves them instead of truncating. The `--percentages` mode prints the exact string value, and JSON output includes `*_percent_exact` fields alongside numeric compatibility fields.
+
 ## Platform Support
 
 - Windows: supported via Python or `scripts/codex_usage_limits.ps1`.
