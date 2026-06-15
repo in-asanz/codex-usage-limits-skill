@@ -49,6 +49,22 @@ Use JSON when the result will be consumed by another script:
 sh ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.sh --json
 ```
 
+Use exact machine-readable percentage fields:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\codex-usage-limits\scripts\codex_usage_limits.ps1" -Percentages
+```
+
+```bash
+sh ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.sh --percentages
+```
+
+Require a fresh event, for example not older than 5 minutes:
+
+```bash
+python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages --fail-if-stale-seconds 300
+```
+
 ## Manual Steps
 
 1. Locate the active Codex logs database. Prefer the newest existing file among:
@@ -72,9 +88,12 @@ sh ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.sh --json
 - `primary.window_minutes == 300`: 5-hour limit.
 - `secondary.window_minutes == 10080`: weekly limit.
 - `used_percent`: percentage already consumed.
+- `api_used_percent`: same API value, exposed explicitly.
 - UI "Uso restante": `100 - used_percent`.
+- `ui_remaining_percent`: exact value to compare with the UI percentage.
 - `reset_after_seconds`: seconds until renewal from the event timestamp.
 - `reset_at`: absolute renewal timestamp.
+- `event_age_seconds`: age of the local `codex.rate_limits` event. If it is too old, trigger a new Codex model response and rerun.
 
 ## Validation
 

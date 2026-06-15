@@ -1,7 +1,9 @@
 param(
     [string] $CodexHome,
     [string] $Db,
-    [switch] $Json
+    [switch] $Json,
+    [switch] $Percentages,
+    [int] $FailIfStaleSeconds
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +20,14 @@ if ($Db) {
 
 if ($Json) {
     $ArgsList += "--json"
+}
+
+if ($Percentages) {
+    $ArgsList += "--percentages"
+}
+
+if ($FailIfStaleSeconds) {
+    $ArgsList += @("--fail-if-stale-seconds", $FailIfStaleSeconds)
 }
 
 python @ArgsList

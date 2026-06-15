@@ -45,6 +45,27 @@ JSON output:
 python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --json
 ```
 
+Exact key/value percentage output:
+
+```bash
+python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages
+```
+
+Example:
+
+```text
+5h_remaining_percent=70
+5h_used_percent=30
+weekly_remaining_percent=80
+weekly_used_percent=20
+```
+
+Fail when the latest local rate-limit event is stale:
+
+```bash
+python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages --fail-if-stale-seconds 300
+```
+
 ## How It Works
 
 Codex emits local websocket log events named `codex.rate_limits`. The skill reads the newest event from `logs_2.sqlite`, then converts stored `used_percent` values into the UI-style remaining percentage:
@@ -54,6 +75,8 @@ remaining_percent = 100 - used_percent
 ```
 
 The 5-hour window is `rate_limits.primary`; the weekly window is `rate_limits.secondary`.
+
+The API currently exposes percentage values as integer `used_percent` fields. The script returns those exact API integers and computes the UI remaining value as `100 - used_percent`. It also reports `event_age_seconds` so callers can reject stale local events.
 
 ## Platform Support
 
