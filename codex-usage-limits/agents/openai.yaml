@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Usage Limits"
+  short_description: "Get Codex remaining usage percentages"
+  default_prompt: "Use $codex-usage-limits to show current 5-hour and weekly Codex usage remaining."
