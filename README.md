@@ -9,6 +9,13 @@ It reports:
 - used percentage for both windows
 - source `logs_2.sqlite` database and capture timestamp
 
+## Requirements
+
+- Codex installed and used at least once, so local Codex logs exist.
+- Python 3 with the standard-library `sqlite3` module.
+
+No third-party packages are required. No OpenAI API key is required.
+
 ## Install
 
 Copy the skill folder into your Codex skills directory:
@@ -66,6 +73,19 @@ Fail when the latest local rate-limit event is stale:
 python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages --fail-if-stale-seconds 300
 ```
 
+## Why This Skill
+
+This skill is intentionally local and narrow:
+
+- It does not read `auth.json`.
+- It does not read credentials or tokens.
+- It does not call private OpenAI/ChatGPT usage endpoints.
+- It does not require an API key.
+- It reads only local Codex log events from `logs_2.sqlite`.
+- It works as a Codex skill and as a direct script.
+
+Similar public tools often call private usage endpoints, inspect auth material, parse session files, or provide a broader multi-provider dashboard. This project focuses only on reproducing the Codex "usage remaining" percentages from local `codex.rate_limits` events.
+
 ## How It Works
 
 Codex emits local websocket log events named `codex.rate_limits`. The skill reads the newest event from `logs_2.sqlite`, then converts stored `used_percent` values into the UI-style remaining percentage:
@@ -101,10 +121,3 @@ python3 codex-usage-limits/scripts/codex_usage_limits.py --db /path/to/logs_2.sq
 ## Privacy
 
 Do not publish your `.codex` directory, SQLite logs, auth files, credentials, screenshots, or local output containing private data. This repository contains only the skill code and documentation.
-
-## Requirements
-
-- Python 3.9+
-- Python standard library `sqlite3`
-
-No third-party packages are required.
