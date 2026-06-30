@@ -13,7 +13,7 @@ Obtain the same values shown by Codex "Uso restante" without using an image. Cod
 
 Use this for Codex App and Codex terminal/CLI when they write local logs under the same Codex home directory. The Python script is cross-platform and defaults to `CODEX_HOME` or `~/.codex`.
 
-This method depends on local log availability, not on the UI. If Codex terminal uses a different `CODEX_HOME`, pass it with `--codex-home`. If the logs do not contain a recent `codex.rate_limits` event, trigger a Codex model response first and rerun the script.
+This method depends on local log availability, not on the UI. If Codex terminal uses a different `CODEX_HOME`, pass it with `--codex-home`. The script reads both `logs_2.sqlite` websocket events and newer `sessions/**/*.jsonl` `rate_limits` entries, then uses the newest valid event.
 
 ## Quick Command
 
@@ -73,15 +73,16 @@ python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --perce
    - `$HOME/.codex/sqlite/logs_2.sqlite`
    - `$HOME/.codex/logs_2.sqlite`
 2. Open it read-only with SQLite.
-3. Query recent log rows containing `websocket event:`.
-4. Parse the JSON payload after `websocket event: ` with `json.JSONDecoder().raw_decode(...)`; rows can contain suffix text.
-5. Select the newest event where `type == "codex.rate_limits"`.
-6. Read:
+3. Query recent SQLite log rows containing `websocket event:` or `Received message`.
+4. Parse the JSON payload after the marker with `json.JSONDecoder().raw_decode(...)`; rows can contain suffix text.
+5. Also scan recent `sessions/**/*.jsonl` rows containing top-level `rate_limits`.
+6. Select the newest valid Codex limit event by timestamp.
+7. Read:
    - `rate_limits.primary`: 5-hour window.
    - `rate_limits.secondary`: weekly window.
-7. Convert the stored used percentage to UI remaining percentage:
+8. Convert the stored used percentage to UI remaining percentage:
    - `remaining_percent = 100 - used_percent`
-8. Convert `reset_at` from Unix seconds to local time. That is when the window renews.
+9. Convert `reset_at`/`resets_at` from Unix seconds to local time. That is when the window renews.
 
 ## Field Meaning
 
