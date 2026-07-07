@@ -3,6 +3,7 @@ param(
     [string] $Db,
     [switch] $Json,
     [switch] $Percentages,
+    [switch] $ResetCredits,
     [int] $FailIfStaleSeconds
 )
 
@@ -24,6 +25,10 @@ if ($Json) {
 
 if ($Percentages) {
     $ArgsList += "--percentages"
+}
+
+if ($ResetCredits) {
+    $ArgsList += "--reset-credits"
 }
 
 if ($FailIfStaleSeconds) {

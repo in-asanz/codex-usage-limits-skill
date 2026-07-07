@@ -7,7 +7,8 @@ It reports:
 - 5-hour remaining percentage and renewal time
 - weekly remaining percentage and renewal time
 - used percentage for both windows
-- source `logs_2.sqlite` database and capture timestamp
+- source SQLite database or session JSONL file and capture timestamp
+- optional banked/free Codex reset credits and expiry dates, only when explicitly requested
 
 ## Requirements
 
@@ -15,6 +16,8 @@ It reports:
 - Python 3 with the standard-library `sqlite3` module.
 
 No third-party packages are required. No OpenAI API key is required.
+
+The optional reset-credit mode uses your existing Codex ChatGPT session in `~/.codex/auth.json` and calls an internal ChatGPT endpoint. It does not print tokens or account IDs.
 
 ## Install
 
@@ -73,22 +76,50 @@ Fail when the latest local rate-limit event is stale:
 python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages --fail-if-stale-seconds 300
 ```
 
+Banked/free Codex reset credits:
+
+```bash
+python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --reset-credits
+```
+
+Windows PowerShell:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\codex-usage-limits\scripts\codex_usage_limits.ps1" -ResetCredits
+```
+
+Example:
+
+```text
+available_count: 3
+available_listed: 3
+1. status=available reset_type=codex_rate_limits granted=2026-06-18 02:34:13 Hora de verano romance expires=2026-07-18 02:34:13 Hora de verano romance
+```
+
 ## Why This Skill
 
 This skill is intentionally local and narrow:
 
-- It does not read `auth.json`.
-- It does not read credentials or tokens.
-- It does not call private OpenAI/ChatGPT usage endpoints.
+- Default usage-percentage mode does not read `auth.json`.
+- Default usage-percentage mode does not read credentials or tokens.
+- Default usage-percentage mode does not call private OpenAI/ChatGPT usage endpoints.
 - It does not require an API key.
-- It reads only local Codex log events from `logs_2.sqlite`.
+- It reads local Codex rate-limit events from `logs_2.sqlite` and newer `sessions/**/*.jsonl` files.
 - It works as a Codex skill and as a direct script.
 
-Similar public tools often call private usage endpoints, inspect auth material, parse session files, or provide a broader multi-provider dashboard. This project focuses only on reproducing the Codex "usage remaining" percentages from local `codex.rate_limits` events.
+Reset-credit mode is separate and opt-in. It reads the existing Codex auth session and calls:
+
+```text
+https://chatgpt.com/backend-api/wham/rate-limit-reset-credits
+```
+
+This endpoint is not a public stable API. Use it as a practical workaround for `available_count`, `granted_at`, and `expires_at`, and expect it may change.
+
+Similar public tools often call private usage endpoints, inspect auth material, or provide a broader multi-provider dashboard. This project keeps the default path focused on reproducing the Codex "usage remaining" percentages from local `codex.rate_limits` events; reset credits are an explicit opt-in path.
 
 ## How It Works
 
-Codex emits local websocket log events named `codex.rate_limits`. The skill reads the newest event from `logs_2.sqlite`, then converts stored `used_percent` values into the UI-style remaining percentage:
+Codex emits local events named `codex.rate_limits`. The skill reads the newest event from `logs_2.sqlite` and newer session JSONL files, then converts stored `used_percent` values into the UI-style remaining percentage:
 
 ```text
 remaining_percent = 100 - used_percent
@@ -99,6 +130,8 @@ The 5-hour window is `rate_limits.primary`; the weekly window is `rate_limits.se
 The API currently exposes percentage values as integer `used_percent` fields. The script returns those exact API integers and computes the UI remaining value as `100 - used_percent`. It also reports `event_age_seconds` so callers can reject stale local events.
 
 If the API starts emitting decimal percentages, the script preserves them instead of truncating. The `--percentages` mode prints the exact string value, and JSON output includes `*_percent_exact` fields alongside numeric compatibility fields.
+
+For reset credits, the script reads the internal reset-credit response, keeps only sanitized fields, and prints available credits with local grant/expiry times. It deliberately avoids printing tokens, raw headers, or raw account IDs.
 
 ## Platform Support
 

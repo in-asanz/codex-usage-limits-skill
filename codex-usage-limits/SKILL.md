@@ -1,13 +1,13 @@
 ---
 name: codex-usage-limits
-description: Inspect local Codex usage/rate-limit percentages without screenshots. Use when the user asks for current Codex usage, remaining usage, weekly percentage, 5-hour percentage, reset time, renewal time, or how to obtain the Codex UI "Uso restante" values from local state/logs.
+description: Inspect Codex usage/rate-limit percentages and optional banked reset credits without screenshots. Use when the user asks for current Codex usage, remaining usage, weekly percentage, 5-hour percentage, reset time, renewal time, Codex UI "Uso restante" values from local state/logs, or available/free Codex reset credits and their expiry dates.
 ---
 
 # Codex Usage Limits
 
 ## Purpose
 
-Obtain the same values shown by Codex "Uso restante" without using an image. Codex stores rate-limit events locally as `codex.rate_limits` websocket events.
+Obtain the same values shown by Codex "Uso restante" without using an image. Codex stores rate-limit events locally as `codex.rate_limits` events in SQLite logs and newer session JSONL files. When the user explicitly asks about free/banked Codex resets, use the optional reset-credits flow below.
 
 ## Scope
 
@@ -65,6 +65,16 @@ Require a fresh event, for example not older than 5 minutes:
 python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --percentages --fail-if-stale-seconds 300
 ```
 
+Check banked/free Codex reset credits and expiry dates:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\codex-usage-limits\scripts\codex_usage_limits.ps1" -ResetCredits
+```
+
+```bash
+python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --reset-credits
+```
+
 ## Manual Steps
 
 1. Locate the active Codex logs database. Prefer the newest existing file among:
@@ -75,7 +85,7 @@ python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --perce
 2. Open it read-only with SQLite.
 3. Query recent SQLite log rows containing `websocket event:` or `Received message`.
 4. Parse the JSON payload after the marker with `json.JSONDecoder().raw_decode(...)`; rows can contain suffix text.
-5. Also scan recent `sessions/**/*.jsonl` rows containing top-level `rate_limits`.
+5. Also scan recent `sessions/**/*.jsonl` rows containing top-level `rate_limits` or `payload.rate_limits`.
 6. Select the newest valid Codex limit event by timestamp.
 7. Read:
    - `rate_limits.primary`: 5-hour window.
@@ -96,6 +106,25 @@ python3 ~/.codex/skills/codex-usage-limits/scripts/codex_usage_limits.py --perce
 - `reset_after_seconds`: seconds until renewal from the event timestamp.
 - `reset_at`: absolute renewal timestamp.
 - `event_age_seconds`: age of the local `codex.rate_limits` event. If it is too old, trigger a new Codex model response and rerun.
+
+## Banked Reset Credits
+
+Use this only when the user asks about free, available, banked, courtesy, or referral Codex resets and their expiry dates. This is separate from local `codex.rate_limits`.
+
+The script reads `$CODEX_HOME/auth.json` or `~/.codex/auth.json`, sends the access token to ChatGPT's internal endpoint, and prints a sanitized result:
+
+```text
+https://chatgpt.com/backend-api/wham/rate-limit-reset-credits
+```
+
+Expected useful fields are:
+
+- `available_count`: number of available reset credits.
+- `credits[].status`: usually `available` for usable credits.
+- `credits[].reset_type`: reset category, for example `codex_rate_limits`.
+- `credits[].granted_at` / `credits[].expires_at`: when the credit was granted and when it expires.
+
+Do not print tokens, `auth.json`, raw authorization headers, or raw account IDs. Treat this endpoint as an undocumented internal workaround; if it fails or changes shape, state that no stable public API is available and fall back to the official UI/support guidance.
 
 ## Validation
 

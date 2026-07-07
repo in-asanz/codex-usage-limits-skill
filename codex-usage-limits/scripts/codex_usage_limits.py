@@ -9,6 +9,8 @@ import json
 import os
 import sqlite3
 import time
+import urllib.error
+import urllib.request
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,7 @@ LOG_PATTERNS = (
     ("%Received message {%", "Received message "),
 )
 SESSION_FILE_LIMIT = 80
+RESET_CREDITS_ENDPOINT = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
 
 
 def default_codex_home() -> Path:
@@ -217,6 +220,76 @@ def build_result(db_path: Path, source: str, ts: int, event: dict[str, Any]) -> 
     }
 
 
+def local_iso(value: Any) -> str | None:
+    if not value:
+        return None
+    return dt.datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
+def reset_credits(codex_home: Path) -> dict[str, Any]:
+    auth_path = codex_home / "auth.json"
+    if not auth_path.exists():
+        raise SystemExit(f"No Codex auth file found: {auth_path}")
+
+    auth = json.loads(auth_path.read_text(encoding="utf-8"))
+    tokens = auth.get("tokens") or {}
+    access_token = tokens.get("access_token")
+    if not access_token:
+        raise SystemExit("No Codex access_token found in auth.json.")
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "originator": "Codex Desktop",
+        "OAI-Product-Sku": "CODEX",
+        "Accept": "application/json",
+    }
+    if tokens.get("account_id"):
+        headers["ChatGPT-Account-ID"] = tokens["account_id"]
+
+    request = urllib.request.Request(RESET_CREDITS_ENDPOINT, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise SystemExit(f"Reset-credit endpoint failed with HTTP {exc.code}; it is an undocumented internal endpoint.") from exc
+    except OSError as exc:
+        raise SystemExit(f"Reset-credit endpoint failed: {exc}") from exc
+
+    credits = []
+    for credit in data.get("credits") or []:
+        credits.append(
+            {
+                "status": credit.get("status"),
+                "reset_type": credit.get("reset_type"),
+                "granted_at": credit.get("granted_at"),
+                "granted_at_local": local_iso(credit.get("granted_at")),
+                "expires_at": credit.get("expires_at"),
+                "expires_at_local": local_iso(credit.get("expires_at")),
+            }
+        )
+    available = [credit for credit in credits if str(credit.get("status", "")).lower() == "available"]
+    return {
+        "source": RESET_CREDITS_ENDPOINT,
+        "source_stability": "internal_undocumented",
+        "available_count": data.get("available_count", len(available)),
+        "available_listed": len(available),
+        "credits": credits,
+    }
+
+
+def print_reset_credits(result: dict[str, Any]) -> None:
+    print(f"available_count: {result['available_count']}")
+    print(f"available_listed: {result['available_listed']}")
+    available = [credit for credit in result["credits"] if str(credit.get("status", "")).lower() == "available"]
+    for index, credit in enumerate(available, 1):
+        print(
+            f"{index}. status={credit.get('status')} "
+            f"reset_type={credit.get('reset_type')} "
+            f"granted={credit.get('granted_at_local') or 'n/a'} "
+            f"expires={credit.get('expires_at_local') or 'n/a'}"
+        )
+
+
 def print_text(result: dict[str, Any]) -> None:
     print(f"captured_at: {result['captured_at_local']}")
     print(f"event_age_seconds: {result['event_age_seconds']}")
@@ -278,10 +351,23 @@ def main() -> None:
         type=int,
         help="Exit with an error if the latest codex.rate_limits event is older than this many seconds.",
     )
+    parser.add_argument(
+        "--reset-credits",
+        action="store_true",
+        help="Read banked Codex reset credits and expiry dates from ChatGPT's internal endpoint.",
+    )
     args = parser.parse_args()
 
-    db_path = Path(args.db).expanduser() if args.db else pick_database(Path(args.codex_home).expanduser())
     codex_home = Path(args.codex_home).expanduser()
+    if args.reset_credits:
+        result = reset_credits(codex_home)
+        if args.json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        else:
+            print_reset_credits(result)
+        return
+
+    db_path = Path(args.db).expanduser() if args.db else pick_database(codex_home)
     ts, event, source = latest_rate_limit_event(codex_home, db_path, args.row_limit, include_sessions=args.db is None)
     result = build_result(db_path, source, ts, event)
 
